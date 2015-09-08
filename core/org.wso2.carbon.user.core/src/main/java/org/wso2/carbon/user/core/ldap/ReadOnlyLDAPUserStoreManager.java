@@ -48,9 +48,6 @@ import javax.naming.PartialResultException;
 import javax.naming.directory.Attribute;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
-import javax.naming.directory.InvalidAttributeIdentifierException;
-import javax.naming.directory.InvalidAttributeValueException;
-import javax.naming.directory.NoSuchAttributeException;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
 import javax.naming.ldap.LdapContext;
@@ -615,8 +612,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
         }
         String searchFilter = ((LDAPRoleContext) context).getListFilter();
         String roleNameProperty = ((LDAPRoleContext) context).getRoleNameProperty();
-        searchFilter = "(&" + searchFilter + "(" + roleNameProperty + "=" + escapeSpecialCharactersForFilter
-                (roleName) + "))";
+        searchFilter = "(&" + searchFilter + "(" + roleNameProperty + "=" + escapeSpecialCharactersForFilter(roleName) + "))";
         String searchBases = ((LDAPRoleContext) context).getSearchBase();
 
         if (debug) {
@@ -1553,8 +1549,8 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
 
             String searchFilter = ((LDAPRoleContext) context).getListFilter();
             String roleNameProperty = ((LDAPRoleContext) context).getRoleNameProperty();
-            searchFilter = "(&" + searchFilter + "(" + roleNameProperty + "=" + escapeSpecialCharactersForFilter
-                    (context.getRoleName()) + "))";
+            searchFilter = "(&" + searchFilter + "(" + roleNameProperty + "=" + escapeSpecialCharactersForFilter(
+                    context.getRoleName()) + "))";
 
             String membershipProperty = realmConfig.getUserStoreProperty(LDAPConstants.MEMBERSHIP_ATTRIBUTE);
             String returnedAtts[] = {membershipProperty};
@@ -1917,7 +1913,8 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
                             membershipValue = escapeLdapNameForFilter(ldn);
                         }
                     } catch (InvalidNameException e) {
-                        throw new UserStoreException("Invalid naming exception for: " + nameInSpace, e);
+                        log.error("Error while creating LDAP name from: " + nameInSpace);
+                        throw new UserStoreException("Invalid naming exception for : " + nameInSpace, e);
                     }
                 } else {
                     return new String[0];
@@ -2334,7 +2331,8 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
         String userPropertyName =
                 realmConfig.getUserStoreProperty(LDAPConstants.USER_NAME_ATTRIBUTE);
 
-        searchFilter = "(&" + searchFilter + "(" + property + "=" + escapeSpecialCharactersForFilterWithStarAsRegex(value) + "))";
+        searchFilter = "(&" + searchFilter + "(" + property + "=" + escapeSpecialCharactersForFilterWithStarAsRegex(
+                value) + "))";
 
         DirContext dirContext = this.connectionSource.getContext();
         NamingEnumeration<?> answer = null;
@@ -2523,7 +2521,8 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
                     LdapName ldn = new LdapName(nameInSpace);
                     membershipValue = escapeLdapNameForFilter(ldn);
                 } catch (InvalidNameException e) {
-                    throw new UserStoreException("Invalid naming exception for: " + nameInSpace, e);
+                    log.error("Error while creating LDAP name from: " + nameInSpace);
+                    throw new UserStoreException("Invalid naming exception for : " + nameInSpace, e);
                 }
             } else {
                 return false;
@@ -2768,6 +2767,11 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
      */
     public Map<String, String> getProperties(Tenant tenant) throws UserStoreException {
         return this.realmConfig.getUserStoreProperties();
+    }
+
+    @Override
+    public boolean isBulkImportSupported() throws UserStoreException {
+        return false;
     }
 
     /**
@@ -3210,42 +3214,5 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
             return true;
         }
         return false;
-    }
-
-    protected void handleException(Exception e, String userName) throws UserStoreException{
-        if (e instanceof InvalidAttributeValueException) {
-            String errorMessage = "One or more attribute values provided are incompatible for user: " + userName
-                    + "Please check and try again.";
-            if (log.isDebugEnabled()) {
-                log.debug(errorMessage, e);
-            }
-            throw new UserStoreException(errorMessage, e);
-        } else if (e instanceof InvalidAttributeIdentifierException) {
-            String errorMessage = "One or more attributes you are trying to add/update are not "
-                    + "supported by underlying LDAP for user: " + userName;
-            if (log.isDebugEnabled()) {
-                log.debug(errorMessage, e);
-            }
-            throw new UserStoreException(errorMessage, e);
-        } else if (e instanceof NoSuchAttributeException) {
-            String errorMessage = "One or more attributes you are trying to add/update are not "
-                    + "supported by underlying LDAP for user: " + userName;
-            if (log.isDebugEnabled()) {
-                log.debug(errorMessage, e);
-            }
-            throw new UserStoreException(errorMessage, e);
-        } else if (e instanceof NamingException) {
-            String errorMessage = "Profile information could not be updated in LDAP user store for user: " + userName;
-            if (log.isDebugEnabled()) {
-                log.debug(errorMessage, e);
-            }
-            throw new UserStoreException(errorMessage, e);
-        } else {
-            String errorMessage = "Error occurred in the underlying server for username: " + userName;
-            if (log.isDebugEnabled()) {
-                log.debug(errorMessage, e);
-            }
-            throw new UserStoreException(errorMessage, e);
-        }
     }
 }

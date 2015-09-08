@@ -40,7 +40,10 @@ import javax.naming.directory.Attributes;
 import javax.naming.directory.BasicAttribute;
 import javax.naming.directory.BasicAttributes;
 import javax.naming.directory.DirContext;
+import javax.naming.directory.InvalidAttributeIdentifierException;
+import javax.naming.directory.InvalidAttributeValueException;
 import javax.naming.directory.ModificationItem;
+import javax.naming.directory.NoSuchAttributeException;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
 import java.io.UnsupportedEncodingException;
@@ -112,6 +115,9 @@ public class ActiveDirectoryUserStoreManager extends ReadWriteLDAPUserStoreManag
             throws UserStoreException {
 
         boolean isUserBinded = false;
+
+		/* validity checks */
+        doAddUserValidityChecks(userName, credential); // / TODO
 
 		/* getting search base directory context */
         DirContext dirContext = getSearchBaseDirectoryContext();
@@ -228,9 +234,8 @@ public class ActiveDirectoryUserStoreManager extends ReadWriteLDAPUserStoreManag
     public void doUpdateCredential(String userName, Object newCredential, Object oldCredential)
             throws UserStoreException {
 
-        if (!isSSLConnection) {
-            logger.warn("Unsecured connection is being used. Password operations will fail");
-        }
+		/* validity checks */
+        doUpdateCredentialsValidityChecks(userName, newCredential);
 
         DirContext dirContext = this.connectionSource.getContext();
         String searchBase = realmConfig.getUserStoreProperty(LDAPConstants.USER_SEARCH_BASE);
@@ -309,10 +314,8 @@ public class ActiveDirectoryUserStoreManager extends ReadWriteLDAPUserStoreManag
     @Override
     public void doUpdateCredentialByAdmin(String userName, Object newCredential)
             throws UserStoreException {
-
-        if (!isSSLConnection) {
-            logger.warn("Unsecured connection is being used. Password operations will fail");
-        }
+		/* validity checks */
+        doUpdateCredentialsValidityChecks(userName, newCredential);
 
         DirContext dirContext = this.connectionSource.getContext();
         String searchBase = realmConfig.getUserStoreProperty(LDAPConstants.USER_SEARCH_BASE);
@@ -374,6 +377,17 @@ public class ActiveDirectoryUserStoreManager extends ReadWriteLDAPUserStoreManag
         } finally {
             JNDIUtil.closeContext(subDirContext);
             JNDIUtil.closeContext(dirContext);
+        }
+    }
+
+    /**
+     *
+     */
+    protected void doUpdateCredentialsValidityChecks(String userName, Object newCredential)
+            throws UserStoreException {
+        super.doUpdateCredentialsValidityChecks(userName, newCredential);
+        if (!isSSLConnection) {
+            logger.warn("Unsecured connection is being used. Password operations will fail");
         }
     }
 
@@ -554,13 +568,7 @@ public class ActiveDirectoryUserStoreManager extends ReadWriteLDAPUserStoreManag
                 subDirContext.rename(returnedUserEntry, "CN=" + escapeSpecialCharactersForDN(cnValue));
             }
 
-        } catch (org.wso2.carbon.user.api.UserStoreException e) {
-            String errorMessage = "Error in obtaining claim mapping for user : " + userName;
-            if (logger.isDebugEnabled()) {
-                logger.debug(errorMessage, e);
-            }
-            throw new UserStoreException(errorMessage, e);
-        } catch (NamingException e) {
+        } catch (Exception e) {
             handleException(e, userName);
         } finally {
             JNDIUtil.closeContext(subDirContext);
@@ -647,13 +655,7 @@ public class ActiveDirectoryUserStoreManager extends ReadWriteLDAPUserStoreManag
             subDirContext.modifyAttributes(returnedUserEntry, DirContext.REPLACE_ATTRIBUTE,
                     updatedAttributes);
 
-        } catch (org.wso2.carbon.user.api.UserStoreException e) {
-            String errorMessage = "Error in obtaining claim mapping for user : " + userName;
-            if (logger.isDebugEnabled()) {
-                logger.debug(errorMessage, e);
-            }
-            throw new UserStoreException(errorMessage, e);
-        } catch (NamingException e) {
+        } catch (Exception e) {
             handleException(e, userName);
         } finally {
             JNDIUtil.closeContext(subDirContext);
@@ -670,6 +672,43 @@ public class ActiveDirectoryUserStoreManager extends ReadWriteLDAPUserStoreManag
         properties.setOptionalProperties(ActiveDirectoryUserStoreConstants.OPTIONAL_ACTIVE_DIRECTORY_UM_PROPERTIES.toArray
                 (new Property[ActiveDirectoryUserStoreConstants.OPTIONAL_ACTIVE_DIRECTORY_UM_PROPERTIES.size()]));
         return properties;
+    }
+
+    private void handleException(Exception e, String userName) throws UserStoreException{
+        if (e instanceof InvalidAttributeValueException) {
+            String errorMessage = "One or more attribute values provided are incompatible for user : " + userName
+                                  + "Please check and try again.";
+            if (logger.isDebugEnabled()) {
+                logger.debug(errorMessage, e);
+            }
+            throw new UserStoreException(errorMessage, e);
+        } else if (e instanceof InvalidAttributeIdentifierException) {
+            String errorMessage = "One or more attributes you are trying to add/update are not "
+                                  + "supported by underlying LDAP for user : " + userName;
+            if (logger.isDebugEnabled()) {
+                logger.debug(errorMessage, e);
+            }
+            throw new UserStoreException(errorMessage, e);
+        } else if (e instanceof NoSuchAttributeException) {
+            String errorMessage = "One or more attributes you are trying to add/update are not "
+                                  + "supported by underlying LDAP for user : " + userName;
+            if (logger.isDebugEnabled()) {
+                logger.debug(errorMessage, e);
+            }
+            throw new UserStoreException(errorMessage, e);
+        } else if (e instanceof NamingException) {
+            String errorMessage = "Profile information could not be updated in LDAP user store for user : " + userName;
+            if (logger.isDebugEnabled()) {
+                logger.debug(errorMessage, e);
+            }
+            throw new UserStoreException(errorMessage, e);
+        } else if (e instanceof org.wso2.carbon.user.api.UserStoreException) {
+            String errorMessage = "Error in obtaining claim mapping for user : " + userName;
+            if (logger.isDebugEnabled()) {
+                logger.debug(errorMessage, e);
+            }
+            throw new UserStoreException(errorMessage, e);
+        }
     }
 
     /**
@@ -701,8 +740,6 @@ public class ActiveDirectoryUserStoreManager extends ReadWriteLDAPUserStoreManag
                     case '\\':
                         sb.append("\\5c");
                         break;
-                  /* Right now * is used as an IS special character, therefore
-                  LDAP escaping won't fix the problem */
 //                case '*':
 //                    sb.append("\\2a");
 //                    break;

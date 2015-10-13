@@ -1,3 +1,5 @@
+package org.wso2.carbon.utils;
+
 /*
  * Copyright (c) 2015, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
  *
@@ -15,13 +17,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.wso2.carbon.utils;
 
-import org.xml.sax.EntityResolver;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
+        import org.xml.sax.EntityResolver;
+        import org.xml.sax.InputSource;
+        import org.xml.sax.SAXException;
 
-import java.io.IOException;
+        import java.io.IOException;
 
 public class CarbonEntityResolver implements EntityResolver {
 

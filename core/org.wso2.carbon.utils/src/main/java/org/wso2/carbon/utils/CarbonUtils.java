@@ -62,13 +62,7 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -76,11 +70,7 @@ import java.math.BigInteger;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * A collection of useful utility methods
@@ -92,6 +82,9 @@ public class CarbonUtils {
             "org.wso2.carbon.tomcat.ext.transport.ServletTransportManager";
 	private static final String TRUE = "true";
 	private static Log log = LogFactory.getLog(CarbonUtils.class);
+    private static final int ENTITY_EXPANSION_LIMIT = 0;
+    private static final String SECURITY_MANAGER_PROPERTY = org.apache.xerces.impl.Constants.XERCES_PROPERTY_PREFIX +
+            org.apache.xerces.impl.Constants.SECURITY_MANAGER_PROPERTY;
     private static boolean isServerConfigInitialized;
 
     public static boolean isAdminConsoleEnabled() {
@@ -1079,8 +1072,8 @@ public class CarbonUtils {
             documentBuilderFactory.setExpandEntityReferences(false);
             documentBuilderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             SecurityManager securityManager = new SecurityManager();
-            securityManager.setEntityExpansionLimit(CarbonConstants.ENTITY_EXPANSION_LIMIT_0);
-            documentBuilderFactory.setAttribute(CarbonConstants.SECURITY_MANAGER_PROPERTY, securityManager);
+            securityManager.setEntityExpansionLimit(ENTITY_EXPANSION_LIMIT);
+            documentBuilderFactory.setAttribute(SECURITY_MANAGER_PROPERTY, securityManager);
             documentBuilder = documentBuilderFactory.newDocumentBuilder();
             documentBuilder.setEntityResolver(new CarbonEntityResolver());
             doc = documentBuilder.parse(xmlConfiguration);
